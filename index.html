@@ -124,6 +124,10 @@
     position:fixed; left:1vw; bottom:1vh; z-index:20;
     font-size:clamp(10px,1.3vh,13px); color:#8f7fb0; opacity:.75;
   }
+  #musicHint{
+    position:fixed; top:1.2vh; left:1vw; z-index:20; display:none;
+    font-size:clamp(11px,1.5vh,16px); color:#e6d7ff; opacity:.8;
+  }
 </style>
 </head>
 <body>
@@ -161,6 +165,7 @@
 </div>
 
 <div class="hint">Space = Quay · F = Toàn màn hình · H = Ẩn/hiện lịch sử · C = Ẩn/hiện điều khiển</div>
+<div id="musicHint">♪ Bấm vào màn hình để bật nhạc</div>
 
 <script>
 (function(){
@@ -388,6 +393,7 @@
 
   // ---------- nhạc nền hồi hộp (nhúng sẵn trong file, không cần mạng) ----------
   const musicEl = document.getElementById('music');
+  const musicHint = document.getElementById('musicHint');
   const MUSIC_VOL = 0.20;
   let musicFade = null;
   function fadeMusic(to, ms, done){
@@ -405,20 +411,23 @@
       }
     }, 50);
   }
+  function showMusicHint(){ musicHint.style.display = 'block'; }
+  function hideMusicHint(){ musicHint.style.display = 'none'; }
   function startMusic(){
     if (!soundOn) return;
-    if (!musicEl.paused) return;   // đang phát rồi thì để chạy liền mạch, không khởi động lại
+    if (!musicEl.paused) { hideMusicHint(); return; }   // đang phát rồi thì để chạy liền mạch
     try {
       musicEl.volume = 0;
       const p = musicEl.play();
       if (p && p.then){
-        p.then(() => fadeMusic(MUSIC_VOL, 400))
-         .catch(() => { startRoll(); });   // nhạc lỗi -> trống lăn thay thế
+        p.then(() => { hideMusicHint(); fadeMusic(MUSIC_VOL, 400); })
+         .catch(() => { if (rolling) startRoll(); else showMusicHint(); });   // bị chặn -> gợi ý bấm
       } else {
+        hideMusicHint();
         fadeMusic(MUSIC_VOL, 400);
       }
     } catch (e){
-      startRoll();
+      if (rolling) startRoll();
     }
   }
   function stopMusic(){
@@ -554,7 +563,7 @@
   soundBtn.addEventListener('click', () => {
     soundOn = !soundOn;
     if (soundOn) { ensureAudio(); startMusic(); }
-    else { stopRoll(); stopMusic(); }
+    else { stopRoll(); stopMusic(); hideMusicHint(); }
     soundBtn.textContent = soundOn ? 'Âm thanh' : 'Tắt tiếng';
   });
 
@@ -609,6 +618,24 @@
 
   buildSlots();
   render();
+
+  // thử phát nhạc ngay khi mở trang; nếu trình duyệt chặn thì bấm/chạm bất kỳ đâu là nhạc chạy
+  (function(){
+    try {
+      musicEl.volume = 0;
+      const p = musicEl.play();
+      if (p && p.then){
+        p.then(() => fadeMusic(MUSIC_VOL, 600)).catch(() => showMusicHint());
+      } else {
+        fadeMusic(MUSIC_VOL, 600);
+      }
+    } catch (e){
+      showMusicHint();
+    }
+  })();
+  window.addEventListener('click', function(){ startMusic(); }, { once: true });
+  window.addEventListener('keydown', function(){ startMusic(); }, { once: true });
+  window.addEventListener('touchstart', function(){ startMusic(); }, { once: true });
 })();
 </script>
 </body>
